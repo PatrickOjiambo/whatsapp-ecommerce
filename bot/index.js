@@ -53,6 +53,46 @@ client.on("message", async (msg) => {
         chatId,
         `Your order for ${quantity} x ${product.title} has been placed successfully! Total: $${totalPrice}\nDelivery to: ${address}\nOrder Reference: ${orderReference}\n\nPlease proceed with the payment using your preferred method. Your phone number is ${chatId.split('@')[0]}.`
       );
+
+      // PROMPT PAYMENT WITH PAYD
+
+       // Make payment request to your API
+       try {
+        const phone = chatId.split('@')[0]
+        console.log("phone",phone);
+
+        const paymentBody = {
+          username: "sheilasharon",
+          network_code: "63902",
+          amount: 5,
+          phone_number:phone,
+          narration: "Payment for order",
+          currency: "KES",
+          callback_url: "https://payd-intergration.vercel.app/"
+        };
+
+        const paymentResponse = await axios.post(
+          "https://payd-intergration.vercel.app/make-payment",
+          paymentBody
+        );
+
+        // Handle payment success or failure
+        console.log("Payment response:", paymentResponse.data);
+        
+
+        client.sendMessage(
+          chatId,
+          ` Kindly enter PIN to STK push sent.\n\n Total Price: $${totalPrice}\n Your phone number is ${chatId.split('@')[0]}.`
+        );
+        
+      } catch (error) {
+        console.error("Payment failed:", error);
+        client.sendMessage(
+          chatId,
+          "There was an error processing your payment. Please try again later."
+        );
+      }
+
       delete currentOrder[chatId]; // Clear the order once confirmed
     } else if (userMessage === "cancel") {
       // Handle order cancellation
