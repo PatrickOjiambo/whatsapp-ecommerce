@@ -1,23 +1,28 @@
 import { collection, addDoc, setDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "./firebase.js";
-// Function to create an order in Firestore
+
 export async function createOrder(phone_number, product, totalPrice, orderReference, address, status = "pending") {
-    const order = {
-      phone_number,
-      product,
-      totalPrice,
-      orderReference,
-      address,
-      status,
-      createdAt: new Date().toISOString(),  // Optional: Add a timestamp for when the order was created
-    };
-  
-    try {
-      const docRef = await addDoc(collection(db, "orders"), order);
-      console.log("All successfull", docRef.id);
-      return docRef.id;
-    } catch (error) {
-      console.error("Error creating order: ", error);
-      throw error;
-    }
+  if (typeof phone_number !== 'string' || typeof product !== 'string' || typeof totalPrice !== 'number' || typeof orderReference !== 'string' || typeof address !== 'string') {
+    throw new Error("Invalid input types");
   }
+
+  const order = {
+    phone_number: phone_number.trim(),
+    product,
+    totalPrice,
+    orderReference: orderReference.trim(),
+    address: address.trim(),
+    status: status.trim(),
+    createdAt: new Date().toISOString(),
+  };
+
+  try {
+    const docRef = await addDoc(collection(db, "orders"), order);
+    console.log(docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.error("Error creating order: ", error);
+    throw error;
+  }
+}
+
