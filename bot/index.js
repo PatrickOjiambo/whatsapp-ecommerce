@@ -48,7 +48,7 @@ client.on("message", async (msg) => {
       const totalPrice = (product.price * quantity).toFixed(2);
       const orderReference = `ORD-${Math.floor(Math.random() * 1000000)}`;
       // TODO: Save the order details in a DB.
-    //   await createOrder(chatId.split("@")[0], product, totalPrice, orderReference, address);
+      await createOrder(chatId.split("@")[0].toString(), product.toString(), parseInt(totalPrice), orderReference, address.toString(), "confirmed");
       client.sendMessage(
         chatId,
         `Your order for ${quantity} x ${product.title} has been placed successfully! Total: $${totalPrice}\nDelivery to: ${address}\nOrder Reference: ${orderReference}\n\nPlease proceed with the payment using your preferred method. Your phone number is ${chatId.split('@')[0]}.`
