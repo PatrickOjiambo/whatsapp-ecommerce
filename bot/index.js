@@ -1,6 +1,8 @@
-import { Client, Product } from "whatsapp-web.js";
+import { Client } from "whatsapp-web.js";
 import qrcode from "qrcode-terminal";
 import axios from "axios";
+import { createOrder } from "./db/puts.js";
+import { getOrderByPhoneNumber } from "./db/gets.js";
 const client = new Client();
 
 let currentOrder = {};
@@ -17,10 +19,54 @@ client.on("message", async (msg) => {
   const chatId = msg.from;
   const userMessage = msg.body.toLowerCase().trim();
 
+  // Check if the user is in the middle of an order process
+  if (currentOrder[chatId]) {
+    if (currentOrder[chatId].step === 1) {
+      // Handle the quantity input
+      const quantity = parseInt(userMessage);
+      if (!isNaN(quantity) && quantity > 0) {
+        currentOrder[chatId].quantity = quantity;
+        currentOrder[chatId].step = 2;
+        client.sendMessage(chatId, "Please provide your delivery address.");
+      } else {
+        client.sendMessage(chatId, "Please enter a valid quantity.");
+      }
+    } else if (currentOrder[chatId].step === 2) {
+      // Handle the address input
+      currentOrder[chatId].address = userMessage;
+      currentOrder[chatId].step = 3;
+      const { product, quantity, address } = currentOrder[chatId];
+      const totalPrice = (product.price * quantity).toFixed(2);
+      const response = `You are about to order ${quantity} x ${product.title} for $${totalPrice}.\nDelivery to: ${address}\n\nType *confirm* to place the order or *cancel* to abort.`;
+      client.sendMessage(chatId, response);
+    } else if (
+      userMessage === "confirm" &&
+      currentOrder[chatId].step === 3
+    ) {
+      // Handle the order confirmation
+      const { product, quantity, address } = currentOrder[chatId];
+      const totalPrice = (product.price * quantity).toFixed(2);
+      const orderReference = `ORD-${Math.floor(Math.random() * 1000000)}`;
+      // TODO: Save the order details in a DB.
+    //   await createOrder(chatId.split("@")[0], product, totalPrice, orderReference, address);
+      client.sendMessage(
+        chatId,
+        `Your order for ${quantity} x ${product.title} has been placed successfully! Total: $${totalPrice}\nDelivery to: ${address}\nOrder Reference: ${orderReference}\n\nPlease proceed with the payment using your preferred method. Your phone number is ${chatId.split('@')[0]}.`
+      );
+      delete currentOrder[chatId]; // Clear the order once confirmed
+    } else if (userMessage === "cancel") {
+      // Handle order cancellation
+      delete currentOrder[chatId];
+      client.sendMessage(chatId, "Your order has been canceled.");
+    }
+    return; // Exit early if the user is in an order process
+  }
+
+  // If no ongoing order, handle other commands
   if (userMessage === "hi" || userMessage === "hello") {
     client.sendMessage(
       chatId,
-      "Welcome to [Your Store Name]! Type *catalog* to view our jewelry collection or *help* for assistance."
+      "Welcome to Cairo! Type *catalog* to view our jewelry collection or *help* for assistance."
     );
   } else if (userMessage === "catalog") {
     const products = await fetchProducts();
@@ -57,39 +103,6 @@ client.on("message", async (msg) => {
     } else {
       client.sendMessage(chatId, "Invalid product number. Please try again.");
     }
-  } else if (currentOrder[chatId] && currentOrder[chatId].step === 1) {
-    const quantity = parseInt(userMessage);
-    if (quantity > 0) {
-      currentOrder[chatId].quantity = quantity;
-      currentOrder[chatId].step = 2;
-      client.sendMessage(chatId, "Please provide your delivery address.");
-    } else {
-      client.sendMessage(chatId, "Please enter a valid quantity.");
-    }
-  } else if (currentOrder[chatId] && currentOrder[chatId].step === 2) {
-    currentOrder[chatId].address = userMessage;
-    currentOrder[chatId].step = 3;
-    const { product, quantity, address } = currentOrder[chatId];
-    const totalPrice = (product.price * quantity).toFixed(2);
-    const response = `You are about to order ${quantity} x ${product.title} for $${totalPrice}.\nDelivery to: ${address}\n\nType *confirm* to place the order or *cancel* to abort.`;
-    client.sendMessage(chatId, response);
-  } else if (
-    userMessage === "confirm" &&
-    currentOrder[chatId] &&
-    currentOrder[chatId].step === 3
-  ) {
-    const { product, quantity, address } = currentOrder[chatId];
-    const totalPrice = (product.price * quantity).toFixed(2);
-    const orderReference = `ORD-${Math.floor(Math.random() * 1000000)}`;
-    // Save the order details in your backend here.
-    client.sendMessage(
-      chatId,
-      `Your order for ${quantity} x ${product.title} has been placed successfully! Total: $${totalPrice}\nDelivery to: ${address}\nOrder Reference: ${orderReference}\n\nPlease proceed with the payment using your preferred method.`
-    );
-    delete currentOrder[chatId]; // Clear the order once confirmed
-  } else if (userMessage === "cancel" && currentOrder[chatId]) {
-    delete currentOrder[chatId];
-    client.sendMessage(chatId, "Your order has been canceled.");
   } else if (userMessage === "help") {
     client.sendMessage(
       chatId,
@@ -104,6 +117,7 @@ client.on("message", async (msg) => {
 });
 
 client.initialize();
+
 async function fetchProducts() {
   try {
     const response = await axios.get(
