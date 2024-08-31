@@ -63,7 +63,7 @@ client.on("message", async (msg) => {
 
         const paymentBody = {
           username: "sheilasharon",
-          network_code: "63902",
+          network_code: "63902", //63903-airtel or 63902-saf
           amount: 5,
           phone_number:phone,
           narration: "Payment for order",
